@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Concresuper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-text">
+        <h1><span class="c-green">CONCRE</span><span class="c-grey">SUPER</span></h1>
+        <p>SUPER TECNOLOGIA EM CONCRETO</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="fileStatus" class="file-status">Nenhum arquivo carregado</span>
+      <button id="btnUpdate" class="btn btn-primary">🔄 ATUALIZAR DADOS</button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="producao">📊 Meta e Produzido</button>
+    <button class="tab" data-tab="propostas">📋 Propostas</button>
+  </nav>
+
+  <main>
+
+    <!-- ABA 1 — META E PRODUZIDO -->
+    <section id="tab-producao" class="tab-panel active">
+      <section class="filters">
+        <div class="filter-group">
+          <label>Mês</label>
+          <select id="filterMonthP"></select>
+        </div>
+        <div class="filter-group">
+          <label>Dia</label>
+          <select id="filterDayP"></select>
+        </div>
+        <div class="filter-group">
+          <label>Filial</label>
+          <select id="filterBranchP"></select>
+        </div>
+        <div class="filter-group">
+          <label>Vendedor</label>
+          <select id="filterVendorP"></select>
+        </div>
+        <button id="btnClearP" class="btn btn-secondary">Limpar filtros</button>
+      </section>
+
+      <div class="cards" id="cardsProducao"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Ranking por Meta 100%</h2>
+          <div id="rankingVendors"></div>
+        </div>
+        <div class="card">
+          <h2>Desempenho por Vendedor</h2>
+          <div class="table-wrap" id="tableVendors"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Meta 100% × Produzido</h2>
+        <div class="chart-box">
+          <canvas id="chartDayCompare"></canvas>
+          <p id="emptyDayCompare" class="chart-empty hidden">Sem dados para o período selecionado.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Desempenho por Filial</h2>
+        <div class="table-wrap" id="tableBranches"></div>
+      </div>
+
+      <div class="card">
+        <h2>Evolução Diária — Meta 100% × Produzido Acumulado</h2>
+        <div class="chart-box">
+          <canvas id="chartDaily"></canvas>
+          <p id="emptyDaily" class="chart-empty hidden">Sem dados para o período selecionado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2 — PROPOSTAS -->
+    <section id="tab-propostas" class="tab-panel">
+      <section class="filters">
+        <div class="filter-group">
+          <label>Mês</label>
+          <select id="filterMonthS"></select>
+        </div>
+        <div class="filter-group">
+          <label>Vendedor</label>
+          <select id="filterVendorS"></select>
+        </div>
+        <button id="btnClearS" class="btn btn-secondary">Limpar filtros</button>
+      </section>
+
+      <div class="cards" id="cardsPropostas"></div>
+      <div class="grid-2">
+        <div class="card">
+          <h2>Ranking de Vendedores</h2>
+          <div id="rankingProposals"></div>
+        </div>
+        <div class="card">
+          <h2>Desempenho por Vendedor</h2>
+          <div class="table-wrap" id="tableProposals"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Evolução Diária e Acumulado no Mês — por Vendedor</h2>
+        <div id="vendorProposalCharts"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
