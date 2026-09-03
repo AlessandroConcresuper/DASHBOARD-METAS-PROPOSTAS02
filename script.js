@@ -6,8 +6,10 @@
    - Filtro de dias abre no dia mais recente com dados.
    - Gráfico com 2 séries: "Total Produzido" e "Meta 100%".
    - "Total Produzido" = valor registrado no dia selecionado no filtro.
-   - Reparo de nomes: remove "undefined" e corrige nomes corrompidos
-     comparando com a lista conhecida de vendedores e filiais.
+   - Reparo de nomes: remove "undefined" e corrige nomes corrompidos.
+   - META DE RITMO: lê os dias de 25/50/75/100% da aba "Meta de Ritmo"
+     da planilha. Ao trocar o mês, os dias que fecham cada % mudam
+     conforme o que foi definido na planilha.
     */
 
 /* ---------- 1. CONFIGURAÇÃO ---------- */
@@ -40,7 +42,7 @@ const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
 /* ---------- 2. ESTADO GLOBAL ---------- */
 const state = {
-  daily: [], goals: [], proposals: [],
+  daily: [], goals: [], proposals: [], rhythm: [],
   months: [], branches: [], vendors: [],
   isCumulative: true,
   prod: { month: 'all', day: 'all', branch: 'all', vendor: 'all' },
@@ -183,6 +185,7 @@ function processWorkbook(data, name) {
   try { state.daily = parseDaily(wb); } catch (e) { state.daily = []; }
   try { state.goals = parseGoals(wb); } catch (e) { state.goals = []; }
   try { state.proposals = parseProposals(wb); } catch (e) { state.proposals = []; }
+  try { state.rhythm = parseRhythm(wb); } catch (e) { state.rhythm = []; }
   normalizeNames();
   state.isCumulative = detectCumulative();
   deriveDimensions();
@@ -190,7 +193,7 @@ function processWorkbook(data, name) {
   renderFilters();
   renderAll();
   const modo = state.isCumulative ? 'acumulado' : 'diário';
-  setStatus(name + ' · ' + state.daily.length + ' registros diários · ' + state.goals.length + ' metas · ' + state.proposals.length + ' propostas · vendedores: ' + state.vendors.length + ' · Produzido: ' + modo);
+  setStatus(name + ' · ' + state.daily.length + ' registros diários · ' + state.goals.length + ' metas · ' + state.proposals.length + ' propostas · ritmo: ' + state.rhythm.length + ' meses · vendedores: ' + state.vendors.length + ' · Produzido: ' + modo);
 }
 
 /* Unifica a grafia dos nomes e repara nomes corrompidos em todas as abas */
@@ -216,6 +219,37 @@ function getSheet(wb, namePattern) {
   for (const n of wb.SheetNames) if (norm(n).includes(norm(namePattern))) return wb.Sheets[n];
   return null;
 }
+
+/* Lê a aba "Meta de Ritmo": Mês | Dia 25% | Dia 50% | Dia 75% | Dia 100% */
+function parseRhythm(wb) {
+  const ws = getSheet(wb, 'Meta de Ritmo');
+  if (!ws) return [];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  const out = [];
+  for (const r of rows) {
+    const mes = str(findCol(r, ['Mês', 'Mes', 'mês', 'mes', 'MES']));
+    if (!mes) continue;
+    const d25 = safeNumber(findCol(r, ['Dia 25%', 'Dia 25', 'dia_25_', 'dia25', 'Dia25']));
+    const d50 = safeNumber(findCol(r, ['Dia 50%', 'Dia 50', 'dia_50_', 'dia50', 'Dia50']));
+    const d75 = safeNumber(findCol(r, ['Dia 75%', 'Dia 75', 'dia_75_', 'dia75', 'Dia75']));
+    const d100 = safeNumber(findCol(r, ['Dia 100%', 'Dia 100', 'dia_100_', 'dia100', 'Dia100']));
+    out.push({ mes, d25, d50, d75, d100 });
+  }
+  return out;
+}
+
+/* Retorna os dias de ritmo do mês selecionado (da aba "Meta de Ritmo") */
+function getRhythmForMonth(monthName) {
+  const found = state.rhythm.find(r => norm(r.mes) === norm(monthName));
+  if (found) {
+    return {
+      defined: true,
+      d25: found.d25, d50: found.d50, d75: found.d75, d100: found.d100
+    };
+  }
+  return { defined: false, d25: null, d50: null, d75: null, d100: null };
+}
+
 function parseDaily(wb) {
   const ws = getSheet(wb, 'Dados Diários');
   if (!ws) return [];
@@ -683,20 +717,33 @@ function renderRankingProducao(list) {
   }).join('');
 }
 
-/* Tabela com a Meta 100% e as metas fragmentadas (25/50/75) com as datas */
+/* Tabela com a Meta 100% e as metas fragmentadas (25/50/75) com os dias da aba "Meta de Ritmo" */
 function renderTableVendors(list) {
   const el = document.getElementById('tableVendors');
   if (!list.length) { el.innerHTML = '<p class="empty">Sem dados para os filtros selecionados.</p>'; return; }
 
-  const note = '<div class="table-note">' +
-    '<div class="note-title">📌 Meta de Ritmo</div>' +
-    '<p>Para mantermos um ritmo constante ao longo do mês, nosso objetivo é:</p>' +
-    '<div class="note-milestones">' +
-    '<div class="milestone"><span class="m-pct">25%</span> até o dia 10</div>' +
-    '<div class="milestone"><span class="m-pct">50%</span> até o dia 17</div>' +
-    '<div class="milestone"><span class="m-pct">75%</span> até o dia 24</div>' +
-    '<div class="milestone"><span class="m-pct">100%</span> até o dia 31</div>' +
-    '</div></div>';
+  /* Mês selecionado (ou o mais recente) para buscar os dias de ritmo */
+  const months = getSelectedMonths('prod');
+  const monthName = months.length ? months[0].name : MONTHS_PT[new Date().getMonth()];
+  const ritmo = getRhythmForMonth(monthName);
+
+  let note;
+  if (ritmo.defined) {
+    note = '<div class="table-note">' +
+      '<div class="note-title">📌 Meta de Ritmo — ' + monthName + '</div>' +
+      '<p>Para mantermos um ritmo constante ao longo do mês, nosso objetivo é:</p>' +
+      '<div class="note-milestones">' +
+      '<div class="milestone"><span class="m-pct">25%</span> até o dia ' + ritmo.d25 + '</div>' +
+      '<div class="milestone"><span class="m-pct">50%</span> até o dia ' + ritmo.d50 + '</div>' +
+      '<div class="milestone"><span class="m-pct">75%</span> até o dia ' + ritmo.d75 + '</div>' +
+      '<div class="milestone"><span class="m-pct">100%</span> até o dia ' + ritmo.d100 + '</div>' +
+      '</div></div>';
+  } else {
+    note = '<div class="table-note">' +
+      '<div class="note-title">📌 Meta de Ritmo — ' + monthName + '</div>' +
+      '<p>Meta de ritmo não definida para este mês na aba "Meta de Ritmo" da planilha.</p>' +
+      '</div>';
+  }
 
   const rows = list.map((v, i) => {
     const cls = i === 0 ? 'row-best' : i < 3 ? 'row-top' : '';
@@ -717,9 +764,15 @@ function renderTableVendors(list) {
       '<td>' + fmtNum(v.falta) + '</td>' +
       '</tr>';
   }).join('');
+
+  /* Títulos das colunas usam os dias da aba "Meta de Ritmo" */
+  const h25 = ritmo.defined ? 'Meta 25% (' + ritmo.d25 + ')' : 'Meta 25%';
+  const h50 = ritmo.defined ? 'Meta 50% (' + ritmo.d50 + ')' : 'Meta 50%';
+  const h75 = ritmo.defined ? 'Meta 75% (' + ritmo.d75 + ')' : 'Meta 75%';
+
   el.innerHTML = note + '<table class="tbl"><thead><tr>' +
     '<th>Posição</th><th>Vendedor</th><th>Meta 100%</th>' +
-    '<th>Meta 25% (10)</th><th>Meta 50% (17)</th><th>Meta 75% (24)</th>' +
+    '<th>' + h25 + '</th><th>' + h50 + '</th><th>' + h75 + '</th>' +
     '<th>Produzido</th><th>% da Meta</th><th>Falta</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
